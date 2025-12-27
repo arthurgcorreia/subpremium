@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Music, Film, Youtube, Headphones, AlertCircle, Plus, Inbox, Settings } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 interface ContaMestre {
   id: string
@@ -42,12 +42,6 @@ const getServicoNome = (servico: string) => {
   }
 }
 
-// Verificar se Supabase está configurado
-const isSupabaseConfigured = () => {
-  const url = import.meta.env.VITE_SUPABASE_URL
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-  return !!(url && key && url.trim() !== '' && key.trim() !== '')
-}
 
 export default function DashboardAdmin() {
   const [lotes, setLotes] = useState<ContaMestre[]>([])

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, CheckCircle, Loader2 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 interface CheckoutModalProps {
   isOpen: boolean
@@ -49,6 +49,11 @@ export default function CheckoutModal({ isOpen, onClose, produto }: CheckoutModa
     setMensagem(null)
 
     try {
+      // Verificar se Supabase está configurado
+      if (!isSupabaseConfigured()) {
+        throw new Error('Supabase não está configurado. Configure as variáveis de ambiente.')
+      }
+
       const servico = produto.servico
 
       // Buscar contas mestres ativas do serviço
