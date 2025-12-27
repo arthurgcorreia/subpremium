@@ -21,6 +21,10 @@ export default {
       boxShadow: {
         'glow': '0 0 20px rgba(29, 185, 84, 0.5)',
         'glow-lg': '0 0 30px rgba(29, 185, 84, 0.7)',
+        'neon': '0 0 40px rgba(29, 185, 84, 0.3)',
+      },
+      backdropBlur: {
+        xs: '2px',
       },
     },
   },

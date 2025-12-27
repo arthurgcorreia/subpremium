@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Music, Film, Youtube, Headphones, CheckCircle, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Music, Film, Youtube, Headphones, Sparkles, TrendingDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import CheckoutModal from '../components/CheckoutModal'
 
 interface Produto {
   id: string
@@ -9,330 +10,268 @@ interface Produto {
   preco: string
   descricao: string
   servico: 'spotify' | 'netflix' | 'youtube' | 'deezer'
-  temGlow?: boolean
+  emoji: string
+}
+
+interface VagasInfo {
+  ocupadas: number
+  total: number
+  disponiveis: number
 }
 
 const produtos: Produto[] = [
   {
     id: '1',
     nome: 'Spotify Premium',
-    icone: <Music className="w-12 h-12" />,
+    icone: <Music className="w-8 h-8" />,
     preco: 'R$ 15,90/mês',
     descricao: 'Plano Família - Acesso completo',
     servico: 'spotify',
-    temGlow: true,
+    emoji: '🎵',
   },
   {
     id: '2',
     nome: 'Netflix',
-    icone: <Film className="w-12 h-12" />,
+    icone: <Film className="w-8 h-8" />,
     preco: 'R$ 12,90/mês',
     descricao: '4 Perfis por conta',
     servico: 'netflix',
+    emoji: '🎬',
   },
   {
     id: '3',
     nome: 'YouTube Premium',
-    icone: <Youtube className="w-12 h-12" />,
+    icone: <Youtube className="w-8 h-8" />,
     preco: 'R$ 14,90/mês',
     descricao: 'Plano Família - Sem anúncios',
     servico: 'youtube',
+    emoji: '📺',
   },
   {
     id: '4',
     nome: 'Deezer Premium',
-    icone: <Headphones className="w-12 h-12" />,
+    icone: <Headphones className="w-8 h-8" />,
     preco: 'R$ 13,90/mês',
     descricao: 'Plano Família - Alta qualidade',
     servico: 'deezer',
+    emoji: '🎧',
   },
 ]
 
 export default function LandingPage() {
-  const [formData, setFormData] = useState({
-    nome: '',
-    whatsapp: '',
-    email: '',
-    produtoSelecionado: '',
-  })
-  const [loading, setLoading] = useState(false)
-  const [mensagem, setMensagem] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null)
+  const [vagasInfo, setVagasInfo] = useState<Record<string, VagasInfo>>({})
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
+  useEffect(() => {
+    buscarVagasDisponiveis()
+    const interval = setInterval(buscarVagasDisponiveis, 30000) // Atualizar a cada 30s
+    return () => clearInterval(interval)
+  }, [])
 
-  const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setMensagem(null)
-
+  const buscarVagasDisponiveis = async () => {
     try {
-      // 1. Identificar qual serviço o usuário escolheu
-      const produtoSelecionado = produtos.find(p => p.id === formData.produtoSelecionado)
-      if (!produtoSelecionado) {
-        throw new Error('Produto não encontrado')
+      const servicos = ['spotify', 'netflix', 'youtube', 'deezer']
+      const info: Record<string, VagasInfo> = {}
+
+      for (const servico of servicos) {
+        const { data } = await supabase
+          .from('contas_mestre')
+          .select('limite_slots, slots_ocupados')
+          .eq('servico', servico)
+          .eq('status', 'ativo')
+
+        if (data) {
+          const total = data.reduce((sum, conta) => sum + conta.limite_slots, 0)
+          const ocupadas = data.reduce((sum, conta) => sum + conta.slots_ocupados, 0)
+          info[servico] = {
+            ocupadas,
+            total,
+            disponiveis: total - ocupadas,
+          }
+        }
       }
 
-      const servico = produtoSelecionado.servico
-
-      // 2. Buscar contas mestres ativas do serviço
-      const { data: todasContas, error: errorContas } = await supabase
-        .from('contas_mestre')
-        .select('*')
-        .eq('servico', servico)
-        .eq('status', 'ativo')
-
-      if (errorContas) {
-        throw errorContas
-      }
-
-      // Filtrar contas com slots disponíveis (slots_ocupados < limite_slots)
-      const contasDisponiveis = todasContas?.filter(
-        conta => conta.slots_ocupados < conta.limite_slots
-      ) || []
-
-      // 3. Lógica de Estoque
-      if (contasDisponiveis.length === 0) {
-        // Estoque esgotado
-        setMensagem({
-          tipo: 'erro',
-          texto: 'Estoque esgotado para este serviço. Tente novamente mais tarde.',
-        })
-        return
-      }
-
-      // Pegar a primeira conta disponível
-      const contaMestre = contasDisponiveis[0]
-
-      // 4. Inserir venda na tabela vendas
-      const { error: errorVenda } = await supabase
-        .from('vendas')
-        .insert({
-          conta_mestre_id: contaMestre.id,
-          cliente_nome: formData.nome,
-          cliente_email_servico: formData.email,
-          cliente_whatsapp: formData.whatsapp,
-          status_pagamento: 'pendente',
-          status_entrega: 'pendente',
-        })
-
-      if (errorVenda) {
-        throw errorVenda
-      }
-
-      // 5. Incrementar slots_ocupados da conta mestre
-      const novoSlotsOcupados = contaMestre.slots_ocupados + 1
-      const novoStatus = novoSlotsOcupados >= contaMestre.limite_slots ? 'cheio' : 'ativo'
-
-      const { error: errorUpdate } = await supabase
-        .from('contas_mestre')
-        .update({
-          slots_ocupados: novoSlotsOcupados,
-          status: novoStatus,
-        })
-        .eq('id', contaMestre.id)
-
-      if (errorUpdate) {
-        throw errorUpdate
-      }
-
-      // 6. Sucesso - limpar formulário e exibir mensagem
-      setFormData({
-        nome: '',
-        whatsapp: '',
-        email: '',
-        produtoSelecionado: '',
-      })
-
-      setMensagem({
-        tipo: 'sucesso',
-        texto: 'Pedido Realizado com sucesso! Você receberá as informações de acesso em breve.',
-      })
-
-      // Limpar mensagem após 5 segundos
-      setTimeout(() => {
-        setMensagem(null)
-      }, 5000)
+      setVagasInfo(info)
     } catch (error) {
-      console.error('Erro no checkout:', error)
-      setMensagem({
-        tipo: 'erro',
-        texto: error instanceof Error ? error.message : 'Erro ao processar pedido. Tente novamente.',
-      })
-    } finally {
-      setLoading(false)
+      console.error('Erro ao buscar vagas:', error)
     }
   }
 
+  const handleCardClick = (produto: Produto) => {
+    setProdutoSelecionado(produto)
+    setModalOpen(true)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, produtoId: string) => {
+    const card = cardRefs.current[produtoId]
+    if (!card) return
+
+    const rect = card.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+
+    card.style.setProperty('--mouse-x', `${x}%`)
+    card.style.setProperty('--mouse-y', `${y}%`)
+  }
+
   return (
-    <div className="min-h-screen bg-background text-white">
+    <div className="min-h-screen text-white relative z-10">
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent">
-          Economize até 80% nas suas Assinaturas
-        </h1>
-        <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl mx-auto">
-          Acesse os melhores serviços de streaming e música compartilhando planos familiares premium
-        </p>
-        <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-400">
-          <span>✓ Sem compromisso</span>
-          <span>✓ Acesso imediato</span>
-          <span>✓ Suporte garantido</span>
-        </div>
-      </section>
+      <section className="container mx-auto px-4 py-16 md:py-24 text-center relative">
+        <div className="max-w-4xl mx-auto">
+          {/* Badge de Economia */}
+          <div className="inline-flex items-center gap-2 glass px-4 py-2 rounded-full mb-6 border border-primary/30">
+            <TrendingDown className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold text-primary">Economize até 80%</span>
+          </div>
 
-      {/* Grid de Produtos */}
-      <section className="container mx-auto px-4 py-12">
-        <h2 className="text-3xl font-bold text-center mb-12">Nossos Planos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {produtos.map((produto) => (
-            <div
-              key={produto.id}
-              className={`
-                relative bg-background-light rounded-lg p-6 border-2 transition-all duration-300
-                hover:scale-105 hover:border-primary
-                ${produto.temGlow ? 'border-primary shadow-glow hover:shadow-glow-lg' : 'border-gray-700'}
-              `}
-            >
-              {produto.temGlow && (
-                <div className="absolute inset-0 rounded-lg bg-primary opacity-10 blur-xl animate-pulse" />
-              )}
-              <div className="relative z-10">
-                <div className="text-primary mb-4 flex justify-center">
-                  {produto.icone}
+          <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight">
+            <span className="bg-gradient-to-r from-white via-primary to-white bg-clip-text text-transparent">
+              Assinaturas Premium
+            </span>
+            <br />
+            <span className="bg-gradient-to-r from-primary via-primary-light to-primary bg-clip-text text-transparent">
+              por uma Fração do Preço
+            </span>
+          </h1>
+
+          <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
+            Acesse os melhores serviços de streaming e música{' '}
+            <span className="text-primary font-semibold">compartilhando planos familiares</span> premium
+          </p>
+
+          {/* Área de Vídeo IA com Moldura Neon */}
+          <div className="relative max-w-3xl mx-auto mb-12 mt-16">
+            <div className="relative glass-strong rounded-2xl p-1 border-2 border-primary/50 shadow-[0_0_40px_rgba(29,185,84,0.3)]">
+              <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/20 to-background">
+                {/* Placeholder para vídeo - pode ser substituído por um vídeo real */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <Sparkles className="w-16 h-16 text-primary mx-auto mb-4 animate-pulse" />
+                    <p className="text-gray-400 text-sm">Vídeo de Apresentação IA</p>
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold mb-2">{produto.nome}</h3>
-                <p className="text-gray-400 text-sm mb-4">{produto.descricao}</p>
-                <p className="text-2xl font-bold text-primary mb-4">{produto.preco}</p>
-                <button
-                  onClick={() => setFormData(prev => ({ ...prev, produtoSelecionado: produto.id }))}
-                  className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-                >
-                  Assinar Agora
-                </button>
+                {/* Overlay gradiente */}
+                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
               </div>
+              {/* Brilho animado na borda */}
+              <div className="absolute inset-0 rounded-2xl border-2 border-primary/30 animate-pulse pointer-events-none" />
             </div>
-          ))}
+          </div>
+
+          {/* Features com Emojis */}
+          <div className="flex flex-wrap justify-center gap-6 text-sm">
+            <div className="flex items-center gap-2 glass px-4 py-2 rounded-lg border border-white/10">
+              <span className="text-xl">⚡</span>
+              <span className="text-gray-300">Acesso imediato</span>
+            </div>
+            <div className="flex items-center gap-2 glass px-4 py-2 rounded-lg border border-white/10">
+              <span className="text-xl">🔒</span>
+              <span className="text-gray-300">100% seguro</span>
+            </div>
+            <div className="flex items-center gap-2 glass px-4 py-2 rounded-lg border border-white/10">
+              <span className="text-xl">💬</span>
+              <span className="text-gray-300">Suporte garantido</span>
+            </div>
+            <div className="flex items-center gap-2 glass px-4 py-2 rounded-lg border border-white/10">
+              <span className="text-xl">✨</span>
+              <span className="text-gray-300">Sem compromisso</span>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Formulário de Checkout */}
-      <section className="container mx-auto px-4 py-12 max-w-2xl">
-        <div className="bg-background-light rounded-lg p-8 border border-gray-700">
-          <h2 className="text-2xl font-bold mb-6 text-center">Finalizar Assinatura</h2>
+      {/* Grid de Produtos com Glassmorphism */}
+      <section className="container mx-auto px-4 py-12">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+              Escolha Seu Plano
+            </span>
+          </h2>
+          <p className="text-gray-400 text-lg">Planos familiares premium com economia garantida</p>
+        </div>
 
-          {/* Mensagens de Feedback */}
-          {mensagem && (
-            <div
-              className={`mb-6 p-4 rounded-lg border-2 flex items-center gap-3 ${
-                mensagem.tipo === 'sucesso'
-                  ? 'bg-green-500/20 border-green-500 text-green-400'
-                  : 'bg-red-500/20 border-red-500 text-red-400'
-              }`}
-            >
-              {mensagem.tipo === 'sucesso' ? (
-                <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              ) : (
-                <X className="w-5 h-5 flex-shrink-0" />
-              )}
-              <p className="flex-1">{mensagem.texto}</p>
-              <button
-                onClick={() => setMensagem(null)}
-                className="text-gray-400 hover:text-white transition-colors"
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {produtos.map((produto) => {
+            const vagas = vagasInfo[produto.servico] || { ocupadas: 0, total: 0, disponiveis: 0 }
+            const porcentagemOcupada = vagas.total > 0 ? (vagas.ocupadas / vagas.total) * 100 : 0
+            const quaseEsgotado = porcentagemOcupada >= 80
+
+            return (
+              <div
+                key={produto.id}
+                ref={(el) => (cardRefs.current[produto.id] = el)}
+                onMouseMove={(e) => handleMouseMove(e, produto.id)}
+                className="card-glow relative glass rounded-2xl p-6 border border-white/10 cursor-pointer transition-all duration-300 hover:scale-105 hover:border-primary/50 group"
+                onClick={() => handleCardClick(produto)}
               >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+                {/* Efeito de brilho no hover */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/0 via-primary/0 to-primary/0 group-hover:from-primary/10 group-hover:via-primary/5 group-hover:to-primary/10 transition-all duration-500 pointer-events-none" />
 
-          <form onSubmit={handleCheckout} className="space-y-4">
-            <div>
-              <label htmlFor="produto" className="block text-sm font-medium mb-2">
-                Produto
-              </label>
-              <select
-                id="produto"
-                name="produtoSelecionado"
-                value={formData.produtoSelecionado}
-                onChange={handleInputChange}
-                className="w-full bg-background border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
-                required
-              >
-                <option value="">Selecione um produto</option>
-                {produtos.map((produto) => (
-                  <option key={produto.id} value={produto.id}>
-                    {produto.nome} - {produto.preco}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <div className="relative z-10">
+                  {/* Header do Card */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-3xl">{produto.emoji}</div>
+                    <div className="text-primary">{produto.icone}</div>
+                  </div>
 
-            <div>
-              <label htmlFor="nome" className="block text-sm font-medium mb-2">
-                Nome Completo
-              </label>
-              <input
-                type="text"
-                id="nome"
-                name="nome"
-                value={formData.nome}
-                onChange={handleInputChange}
-                className="w-full bg-background border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
-                placeholder="Seu nome completo"
-                required
-              />
-            </div>
+                  <h3 className="text-xl font-bold mb-2">{produto.nome}</h3>
+                  <p className="text-gray-400 text-sm mb-4">{produto.descricao}</p>
 
-            <div>
-              <label htmlFor="whatsapp" className="block text-sm font-medium mb-2">
-                WhatsApp
-              </label>
-              <input
-                type="tel"
-                id="whatsapp"
-                name="whatsapp"
-                value={formData.whatsapp}
-                onChange={handleInputChange}
-                className="w-full bg-background border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
-                placeholder="(00) 00000-0000"
-                required
-              />
-            </div>
+                  {/* Barra de Progresso de Vagas */}
+                  {vagas.total > 0 && (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="text-gray-400">Vagas disponíveis</span>
+                        <span className={`font-semibold ${quaseEsgotado ? 'text-red-400' : 'text-primary'}`}>
+                          {vagas.disponiveis} de {vagas.total}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            quaseEsgotado
+                              ? 'bg-gradient-to-r from-red-500 to-orange-500'
+                              : 'bg-gradient-to-r from-primary to-primary-light'
+                          }`}
+                          style={{ width: `${porcentagemOcupada}%` }}
+                        />
+                      </div>
+                      {quaseEsgotado && (
+                        <p className="text-xs text-red-400 mt-1 font-semibold">⚠️ Últimas vagas!</p>
+                      )}
+                    </div>
+                  )}
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium mb-2">
-                E-mail
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full bg-background border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
-                placeholder="seu@email.com"
-                required
-              />
-            </div>
+                  <p className="text-3xl font-bold text-primary mb-4">{produto.preco}</p>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-6"
-            >
-              {loading ? 'Processando...' : 'Finalizar Compra'}
-            </button>
-          </form>
+                  <button className="w-full bg-gradient-to-r from-primary to-primary-light hover:from-primary-dark hover:to-primary text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-primary/30 group-hover:shadow-primary/50">
+                    Assinar Agora
+                  </button>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="container mx-auto px-4 py-8 text-center text-gray-400 text-sm">
+      <footer className="container mx-auto px-4 py-8 text-center text-gray-400 text-sm mt-20">
         <p>© 2025 SGA - Sistema de Gestão de Assinaturas. Todos os direitos reservados.</p>
       </footer>
+
+      {/* Modal de Checkout */}
+      <CheckoutModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false)
+          buscarVagasDisponiveis() // Atualizar vagas após checkout
+        }}
+        produto={produtoSelecionado}
+      />
     </div>
   )
 }
-
