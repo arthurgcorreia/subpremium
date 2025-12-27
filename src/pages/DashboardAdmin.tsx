@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Music, Film, Youtube, Headphones, AlertCircle } from 'lucide-react'
+import { Music, Film, Youtube, Headphones, AlertCircle, Plus } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 interface ContaMestre {
   id: string
@@ -10,64 +11,6 @@ interface ContaMestre {
   status: 'ativo' | 'cheio'
   data_renovacao: string
 }
-
-// Mock data - será substituído por dados do Supabase
-const mockLotes: ContaMestre[] = [
-  {
-    id: '1',
-    servico: 'spotify',
-    email_mestre: 'spotify1@example.com',
-    limite_slots: 5,
-    slots_ocupados: 5,
-    status: 'cheio',
-    data_renovacao: '2025-01-15',
-  },
-  {
-    id: '2',
-    servico: 'spotify',
-    email_mestre: 'spotify2@example.com',
-    limite_slots: 5,
-    slots_ocupados: 3,
-    status: 'ativo',
-    data_renovacao: '2025-01-20',
-  },
-  {
-    id: '3',
-    servico: 'netflix',
-    email_mestre: 'netflix1@example.com',
-    limite_slots: 4,
-    slots_ocupados: 4,
-    status: 'cheio',
-    data_renovacao: '2025-01-18',
-  },
-  {
-    id: '4',
-    servico: 'netflix',
-    email_mestre: 'netflix2@example.com',
-    limite_slots: 4,
-    slots_ocupados: 2,
-    status: 'ativo',
-    data_renovacao: '2025-01-25',
-  },
-  {
-    id: '5',
-    servico: 'youtube',
-    email_mestre: 'youtube1@example.com',
-    limite_slots: 5,
-    slots_ocupados: 1,
-    status: 'ativo',
-    data_renovacao: '2025-01-22',
-  },
-  {
-    id: '6',
-    servico: 'deezer',
-    email_mestre: 'deezer1@example.com',
-    limite_slots: 5,
-    slots_ocupados: 0,
-    status: 'ativo',
-    data_renovacao: '2025-01-30',
-  },
-]
 
 const getServicoIcon = (servico: string) => {
   switch (servico) {
@@ -101,22 +44,72 @@ const getServicoNome = (servico: string) => {
 
 export default function DashboardAdmin() {
   const [lotes, setLotes] = useState<ContaMestre[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // TODO: Buscar dados do Supabase
-    setLotes(mockLotes)
+    buscarLotes()
   }, [])
 
+  const buscarLotes = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const { data, error: supabaseError } = await supabase
+        .from('contas_mestre')
+        .select('*')
+        .order('data_renovacao', { ascending: true })
+
+      if (supabaseError) {
+        throw supabaseError
+      }
+
+      if (data) {
+        setLotes(data as ContaMestre[])
+      }
+    } catch (err) {
+      console.error('Erro ao buscar lotes:', err)
+      setError(err instanceof Error ? err.message : 'Erro ao carregar lotes')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleNovoLote = () => {
+    console.log('Novo Lote - Funcionalidade em desenvolvimento')
+  }
+
   const isLoteCheio = (lote: ContaMestre) => {
-    return lote.slots_ocupados >= lote.limite_slots
+    return lote.slots_ocupados >= lote.limite_slots || lote.status === 'cheio'
   }
 
   return (
     <div className="min-h-screen bg-background text-white p-8">
       <div className="container mx-auto">
-        <h1 className="text-4xl font-bold mb-8">Dashboard Admin - Gestão de Lotes</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold">Dashboard Admin - Gestão de Lotes</h1>
+          <button
+            onClick={handleNovoLote}
+            className="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Novo Lote
+          </button>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg">
+            <p className="text-red-400">Erro: {error}</p>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-gray-400 text-lg">Carregando lotes...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {lotes.map((lote) => {
             const cheio = isLoteCheio(lote)
             return (
@@ -193,9 +186,10 @@ export default function DashboardAdmin() {
               </div>
             )
           })}
-        </div>
+          </div>
+        )}
 
-        {lotes.length === 0 && (
+        {!loading && lotes.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-400 text-lg">Nenhum lote encontrado</p>
           </div>
