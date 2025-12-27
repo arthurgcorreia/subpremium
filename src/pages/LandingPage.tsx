@@ -117,7 +117,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen text-white relative z-10">
+    <div className="min-h-screen text-white relative z-10" style={{ background: 'radial-gradient(ellipse at center, #1a1a1a 0%, #121212 50%, #0a0a0a 100%)' }}>
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16 md:py-24 text-center relative">
         <div className="max-w-4xl mx-auto">
@@ -127,19 +127,16 @@ export default function LandingPage() {
             <span className="text-sm font-semibold text-primary">Economize até 80%</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight">
-            <span className="bg-gradient-to-r from-white via-primary to-white bg-clip-text text-transparent">
-              Assinaturas Premium
-            </span>
-            <br />
-            <span className="bg-gradient-to-r from-primary via-primary-light to-primary bg-clip-text text-transparent">
-              por uma Fração do Preço
+          <h1 className="text-6xl md:text-8xl font-extrabold mb-6 leading-tight">
+            <span className="text-white">
+              Assinaturas Premium por uma{' '}
+              <span className="text-[#1DB954]">Fração do Preço</span>
             </span>
           </h1>
 
           <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
             Acesse os melhores serviços de streaming e música{' '}
-            <span className="text-primary font-semibold">compartilhando planos familiares</span> premium
+            <span className="text-[#1DB954] font-semibold">compartilhando planos familiares</span> premium
           </p>
 
           {/* Área de Vídeo IA com Moldura Neon */}
@@ -199,13 +196,20 @@ export default function LandingPage() {
             const vagas = vagasInfo[produto.servico] || { ocupadas: 0, total: 0, disponiveis: 0 }
             const porcentagemOcupada = vagas.total > 0 ? (vagas.ocupadas / vagas.total) * 100 : 0
             const quaseEsgotado = porcentagemOcupada >= 80
+            const isSpotify = produto.servico === 'spotify'
 
             return (
               <div
                 key={produto.id}
                 ref={(el) => (cardRefs.current[produto.id] = el)}
                 onMouseMove={(e) => handleMouseMove(e, produto.id)}
-                className="card-glow relative glass rounded-2xl p-6 border border-white/10 cursor-pointer transition-all duration-300 hover:scale-105 hover:border-primary/50 group"
+                className={`
+                  card-glow relative rounded-2xl p-6 border border-white/10 cursor-pointer transition-all duration-300 group
+                  ${isSpotify 
+                    ? 'bg-[#181818] scale-105 shadow-[0_0_30px_-5px_#1DB95466] hover:scale-110' 
+                    : 'glass hover:scale-105 hover:border-primary/50'
+                  }
+                `}
                 onClick={() => handleCardClick(produto)}
               >
                 {/* Efeito de brilho no hover */}
@@ -246,9 +250,9 @@ export default function LandingPage() {
                     </div>
                   )}
 
-                  <p className="text-3xl font-bold text-primary mb-4">{produto.preco}</p>
+                  <p className="text-3xl font-bold text-[#1DB954] mb-4">{produto.preco}</p>
 
-                  <button className="w-full bg-gradient-to-r from-primary to-primary-light hover:from-primary-dark hover:to-primary text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-primary/30 group-hover:shadow-primary/50">
+                  <button className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-[#1DB954]/30 hover:shadow-[#1DB954]/50 hover:brightness-110">
                     Assinar Agora
                   </button>
                 </div>

@@ -26,6 +26,9 @@ export default {
       backdropBlur: {
         xs: '2px',
       },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(ellipse at center, var(--tw-gradient-stops))',
+      },
     },
   },
   plugins: [],
