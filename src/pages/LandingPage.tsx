@@ -66,7 +66,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     buscarVagasDisponiveis()
-    const interval = setInterval(buscarVagasDisponiveis, 30000) // Atualizar a cada 30s
+    const interval = setInterval(buscarVagasDisponiveis, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -117,7 +117,12 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen text-white relative z-10" style={{ background: 'radial-gradient(ellipse at center, #1a1a1a 0%, #121212 50%, #0a0a0a 100%)' }}>
+    <div 
+      className="min-h-screen text-white relative z-10"
+      style={{
+        background: 'radial-gradient(ellipse at center, #1a1a1a 0%, #121212 40%, #000000 100%)'
+      }}
+    >
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16 md:py-24 text-center relative">
         <div className="max-w-4xl mx-auto">
@@ -127,7 +132,7 @@ export default function LandingPage() {
             <span className="text-sm font-semibold text-primary">Economize até 80%</span>
           </div>
 
-          <h1 className="text-6xl md:text-8xl font-extrabold mb-6 leading-tight">
+          <h1 className="text-7xl md:text-8xl font-extrabold mb-6 leading-tight">
             <span className="text-white">
               Assinaturas Premium por uma{' '}
               <span className="text-[#1DB954]">Fração do Preço</span>
@@ -143,17 +148,15 @@ export default function LandingPage() {
           <div className="relative max-w-3xl mx-auto mb-12 mt-16">
             <div className="relative glass-strong rounded-2xl p-1 border-2 border-primary/50 shadow-[0_0_40px_rgba(29,185,84,0.3)]">
               <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/20 to-background">
-                {/* Placeholder para vídeo - pode ser substituído por um vídeo real */}
+                {/* Placeholder para vídeo */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
                     <Sparkles className="w-16 h-16 text-primary mx-auto mb-4 animate-pulse" />
                     <p className="text-gray-400 text-sm">Vídeo de Apresentação IA</p>
                   </div>
                 </div>
-                {/* Overlay gradiente */}
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
               </div>
-              {/* Brilho animado na borda */}
               <div className="absolute inset-0 rounded-2xl border-2 border-primary/30 animate-pulse pointer-events-none" />
             </div>
           </div>
@@ -180,7 +183,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Grid de Produtos com Glassmorphism */}
+      {/* Grid de Produtos */}
       <section className="container mx-auto px-4 py-12">
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
@@ -204,25 +207,25 @@ export default function LandingPage() {
                 ref={(el) => (cardRefs.current[produto.id] = el)}
                 onMouseMove={(e) => handleMouseMove(e, produto.id)}
                 className={`
-                  card-glow relative rounded-2xl p-6 border border-white/10 cursor-pointer transition-all duration-300 group
-                  ${isSpotify 
-                    ? 'bg-[#181818] scale-105 shadow-[0_0_30px_-5px_#1DB95466] hover:scale-110' 
-                    : 'glass hover:scale-105 hover:border-primary/50'
+                  card-glow relative rounded-lg p-6 border border-white/10 cursor-pointer transition-all duration-300 group
+                  ${isSpotify
+                    ? 'bg-[#181818] scale-105 shadow-[0_0_40px_-10px_#1DB954]'
+                    : 'bg-[#181818] hover:scale-105 hover:border-[#1DB954]/50'
                   }
                 `}
                 onClick={() => handleCardClick(produto)}
               >
                 {/* Efeito de brilho no hover */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/0 via-primary/0 to-primary/0 group-hover:from-primary/10 group-hover:via-primary/5 group-hover:to-primary/10 transition-all duration-500 pointer-events-none" />
+                <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/0 via-primary/0 to-primary/0 group-hover:from-primary/10 group-hover:via-primary/5 group-hover:to-primary/10 transition-all duration-500 pointer-events-none" />
 
                 <div className="relative z-10">
                   {/* Header do Card */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-3xl">{produto.emoji}</div>
-                    <div className="text-primary">{produto.icone}</div>
+                    <div className="text-[#1DB954]">{produto.icone}</div>
                   </div>
 
-                  <h3 className="text-xl font-bold mb-2">{produto.nome}</h3>
+                  <h3 className="text-xl font-bold mb-2 text-white">{produto.nome}</h3>
                   <p className="text-gray-400 text-sm mb-4">{produto.descricao}</p>
 
                   {/* Barra de Progresso de Vagas */}
@@ -230,7 +233,7 @@ export default function LandingPage() {
                     <div className="mb-4">
                       <div className="flex items-center justify-between text-xs mb-2">
                         <span className="text-gray-400">Vagas disponíveis</span>
-                        <span className={`font-semibold ${quaseEsgotado ? 'text-red-400' : 'text-primary'}`}>
+                        <span className={`font-semibold ${quaseEsgotado ? 'text-red-400' : 'text-[#1DB954]'}`}>
                           {vagas.disponiveis} de {vagas.total}
                         </span>
                       </div>
@@ -239,7 +242,7 @@ export default function LandingPage() {
                           className={`h-full rounded-full transition-all duration-500 ${
                             quaseEsgotado
                               ? 'bg-gradient-to-r from-red-500 to-orange-500'
-                              : 'bg-gradient-to-r from-primary to-primary-light'
+                              : 'bg-gradient-to-r from-[#1DB954] to-[#1ed760]'
                           }`}
                           style={{ width: `${porcentagemOcupada}%` }}
                         />
@@ -252,6 +255,7 @@ export default function LandingPage() {
 
                   <p className="text-3xl font-bold text-[#1DB954] mb-4">{produto.preco}</p>
 
+                  {/* Botão CTA - w-full, bg #1DB954, texto preto negrito */}
                   <button className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold py-3 px-4 rounded-lg transition-all duration-300 shadow-lg shadow-[#1DB954]/30 hover:shadow-[#1DB954]/50 hover:brightness-110">
                     Assinar Agora
                   </button>
@@ -272,7 +276,7 @@ export default function LandingPage() {
         isOpen={modalOpen}
         onClose={() => {
           setModalOpen(false)
-          buscarVagasDisponiveis() // Atualizar vagas após checkout
+          buscarVagasDisponiveis()
         }}
         produto={produtoSelecionado}
       />
