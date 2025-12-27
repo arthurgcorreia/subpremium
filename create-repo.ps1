@@ -2,15 +2,17 @@
 Write-Host "🚀 Configurando repositório GitHub para subpremium..." -ForegroundColor Cyan
 
 # Verificar se GitHub CLI está instalado
-try {
-    $ghInstalled = Get-Command gh -ErrorAction Stop
+$ghInstalled = Get-Command gh -ErrorAction SilentlyContinue
+
+if ($null -ne $ghInstalled) {
     Write-Host "✓ GitHub CLI encontrado" -ForegroundColor Green
     
-    # Verificar se está autenticado
-    $authCheck = gh auth status 2>&1
+    # Verificar autenticação
+    gh auth status 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✓ Autenticado no GitHub" -ForegroundColor Green
         Write-Host "📦 Criando repositório no GitHub..." -ForegroundColor Yellow
+        
         gh repo create subpremium --private --source=. --remote=origin --push --description "SGA - Sistema de Gestão de Assinaturas"
         
         if ($LASTEXITCODE -eq 0) {
@@ -23,7 +25,7 @@ try {
     } else {
         Write-Host "⚠️  Não autenticado. Execute: gh auth login" -ForegroundColor Yellow
     }
-} catch {
+} else {
     Write-Host "⚠️  GitHub CLI não encontrado" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Para criar manualmente:" -ForegroundColor Cyan
