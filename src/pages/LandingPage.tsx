@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Music, Film, Youtube, Headphones } from 'lucide-react'
+import { Music, Film, Youtube, Headphones, CheckCircle, X } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 interface Produto {
   id: string
@@ -54,17 +55,115 @@ export default function LandingPage() {
     email: '',
     produtoSelecionado: '',
   })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // TODO: Implementar integração com Supabase
-    console.log('Formulário enviado:', formData)
-    alert('Checkout em desenvolvimento!')
-  }
+  const [loading, setLoading] = useState(false)
+  const [mensagem, setMensagem] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setMensagem(null)
+
+    try {
+      // 1. Identificar qual serviço o usuário escolheu
+      const produtoSelecionado = produtos.find(p => p.id === formData.produtoSelecionado)
+      if (!produtoSelecionado) {
+        throw new Error('Produto não encontrado')
+      }
+
+      const servico = produtoSelecionado.servico
+
+      // 2. Buscar contas mestres ativas do serviço
+      const { data: todasContas, error: errorContas } = await supabase
+        .from('contas_mestre')
+        .select('*')
+        .eq('servico', servico)
+        .eq('status', 'ativo')
+
+      if (errorContas) {
+        throw errorContas
+      }
+
+      // Filtrar contas com slots disponíveis (slots_ocupados < limite_slots)
+      const contasDisponiveis = todasContas?.filter(
+        conta => conta.slots_ocupados < conta.limite_slots
+      ) || []
+
+      // 3. Lógica de Estoque
+      if (contasDisponiveis.length === 0) {
+        // Estoque esgotado
+        setMensagem({
+          tipo: 'erro',
+          texto: 'Estoque esgotado para este serviço. Tente novamente mais tarde.',
+        })
+        return
+      }
+
+      // Pegar a primeira conta disponível
+      const contaMestre = contasDisponiveis[0]
+
+      // 4. Inserir venda na tabela vendas
+      const { error: errorVenda } = await supabase
+        .from('vendas')
+        .insert({
+          conta_mestre_id: contaMestre.id,
+          cliente_nome: formData.nome,
+          cliente_email_servico: formData.email,
+          cliente_whatsapp: formData.whatsapp,
+          status_pagamento: 'pendente',
+          status_entrega: 'pendente',
+        })
+
+      if (errorVenda) {
+        throw errorVenda
+      }
+
+      // 5. Incrementar slots_ocupados da conta mestre
+      const novoSlotsOcupados = contaMestre.slots_ocupados + 1
+      const novoStatus = novoSlotsOcupados >= contaMestre.limite_slots ? 'cheio' : 'ativo'
+
+      const { error: errorUpdate } = await supabase
+        .from('contas_mestre')
+        .update({
+          slots_ocupados: novoSlotsOcupados,
+          status: novoStatus,
+        })
+        .eq('id', contaMestre.id)
+
+      if (errorUpdate) {
+        throw errorUpdate
+      }
+
+      // 6. Sucesso - limpar formulário e exibir mensagem
+      setFormData({
+        nome: '',
+        whatsapp: '',
+        email: '',
+        produtoSelecionado: '',
+      })
+
+      setMensagem({
+        tipo: 'sucesso',
+        texto: 'Pedido Realizado com sucesso! Você receberá as informações de acesso em breve.',
+      })
+
+      // Limpar mensagem após 5 segundos
+      setTimeout(() => {
+        setMensagem(null)
+      }, 5000)
+    } catch (error) {
+      console.error('Erro no checkout:', error)
+      setMensagem({
+        tipo: 'erro',
+        texto: error instanceof Error ? error.message : 'Erro ao processar pedido. Tente novamente.',
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -123,7 +222,32 @@ export default function LandingPage() {
       <section className="container mx-auto px-4 py-12 max-w-2xl">
         <div className="bg-background-light rounded-lg p-8 border border-gray-700">
           <h2 className="text-2xl font-bold mb-6 text-center">Finalizar Assinatura</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Mensagens de Feedback */}
+          {mensagem && (
+            <div
+              className={`mb-6 p-4 rounded-lg border-2 flex items-center gap-3 ${
+                mensagem.tipo === 'sucesso'
+                  ? 'bg-green-500/20 border-green-500 text-green-400'
+                  : 'bg-red-500/20 border-red-500 text-red-400'
+              }`}
+            >
+              {mensagem.tipo === 'sucesso' ? (
+                <CheckCircle className="w-5 h-5 flex-shrink-0" />
+              ) : (
+                <X className="w-5 h-5 flex-shrink-0" />
+              )}
+              <p className="flex-1">{mensagem.texto}</p>
+              <button
+                onClick={() => setMensagem(null)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={handleCheckout} className="space-y-4">
             <div>
               <label htmlFor="produto" className="block text-sm font-medium mb-2">
                 Produto
@@ -195,9 +319,10 @@ export default function LandingPage() {
 
             <button
               type="submit"
-              className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-6"
+              disabled={loading}
+              className="w-full bg-primary hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors mt-6"
             >
-              Finalizar Compra
+              {loading ? 'Processando...' : 'Finalizar Compra'}
             </button>
           </form>
         </div>
