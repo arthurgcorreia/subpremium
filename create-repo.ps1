@@ -1,16 +1,14 @@
 # Script para criar repositório GitHub e fazer push inicial
-# Requer: GitHub CLI (gh) instalado OU token GITHUB_TOKEN configurado
-
 Write-Host "🚀 Configurando repositório GitHub para subpremium..." -ForegroundColor Cyan
 
 # Verificar se GitHub CLI está instalado
 $ghInstalled = Get-Command gh -ErrorAction SilentlyContinue
 
-if ($ghInstalled) {
+if ($null -ne $ghInstalled) {
     Write-Host "✓ GitHub CLI encontrado" -ForegroundColor Green
     
     # Verificar se está autenticado
-    $authStatus = gh auth status 2>&1
+    gh auth status 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✓ Autenticado no GitHub" -ForegroundColor Green
         
@@ -20,7 +18,8 @@ if ($ghInstalled) {
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Repositório criado e código enviado com sucesso!" -ForegroundColor Green
-            Write-Host "🔗 Acesse: https://github.com/$(gh api user --jq .login)/subpremium" -ForegroundColor Cyan
+            $username = gh api user --jq .login
+            Write-Host "🔗 Acesse: https://github.com/$username/subpremium" -ForegroundColor Cyan
         } else {
             Write-Host "❌ Erro ao criar repositório. Verifique se já existe ou se você tem permissões." -ForegroundColor Red
         }
@@ -42,4 +41,3 @@ if ($ghInstalled) {
     Write-Host "     git remote add origin https://github.com/SEU-USUARIO/subpremium.git" -ForegroundColor Gray
     Write-Host "     git push -u origin main" -ForegroundColor Gray
 }
-
